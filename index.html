@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#111" />
+  <meta name="description"
+        content="GenerateRacer – a browser-based kart racing game. Race against AI or friends online." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>🏎️ GenerateRacer</title>
+  <link rel="stylesheet" href="game.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       Game canvas (full-window)
+       ============================================================ -->
+  <canvas id="gameCanvas" aria-label="Racing game canvas"></canvas>
+
+  <!-- ============================================================
+       HUD  (shown while racing)
+       ============================================================ -->
+  <div id="hud" class="hidden" role="status" aria-live="polite">
+    <div class="hud-top">
+      <div class="hud-pill" id="hud-position" aria-label="Current position">1st</div>
+      <div class="hud-pill">
+        <div id="hud-lap">Lap 1 / 3</div>
+        <div id="hud-time">0:00.000</div>
+        <div id="hud-bestlap"></div>
+      </div>
+      <div class="hud-pill hud-speedbox">
+        <span id="hud-speed" aria-label="Speed in kilometres per hour">0</span>
+        <span class="hud-unit">km/h</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Touch / on-screen D-pad controls
+       ============================================================ -->
+  <div id="touchControls" class="hidden" aria-label="On-screen controls">
+    <div class="touch-side">
+      <button id="btn-left"  class="touch-btn" aria-label="Steer left">◀</button>
+      <button id="btn-right" class="touch-btn" aria-label="Steer right">▶</button>
+    </div>
+    <div class="touch-side">
+      <button id="btn-brake" class="touch-btn" aria-label="Brake">▼</button>
+      <button id="btn-gas"   class="touch-btn" aria-label="Accelerate">▲</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Keyboard hint (desktop)
+       ============================================================ -->
+  <div id="keyHint" aria-hidden="true">
+    Arrow keys / WASD to drive &nbsp;•&nbsp; Gamepad supported
+  </div>
+
+  <!-- ============================================================
+       Countdown overlay
+       ============================================================ -->
+  <div id="countdown" class="hidden" aria-live="assertive">
+    <div id="countdownNum" aria-label="Countdown">3</div>
+  </div>
+
+  <!-- ============================================================
+       Main menu
+       ============================================================ -->
+  <div id="mainMenu" class="overlay" role="dialog" aria-labelledby="menuTitle">
+    <div class="panel">
+      <h1 id="menuTitle">🏎️ GenerateRacer</h1>
+      <p class="subtitle">Kart racing in your browser</p>
+
+      <button id="btn-single" class="btn" autofocus>
+        🏁 Single Player
+      </button>
+      <button id="btn-multi" class="btn secondary">
+        🌐 Multiplayer (Online)
+      </button>
+
+      <p style="margin-top:20px;font-size:0.75rem;opacity:0.45;line-height:1.6;">
+        Keyboard · Touchscreen · Gamepad · Tesla MCU
+      </p>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Multiplayer menu
+       ============================================================ -->
+  <div id="multiMenu" class="overlay hidden" role="dialog" aria-labelledby="multiTitle">
+    <div class="panel">
+      <h2 id="multiTitle">🌐 Multiplayer</h2>
+      <p style="font-size:0.8rem;opacity:0.55;margin-bottom:16px;">
+        Exchange connection codes to race a friend online (no account needed).
+      </p>
+
+      <button id="btn-host" class="btn green">🏠 Host a Game</button>
+      <button id="btn-join" class="btn">📡 Join a Game</button>
+      <button id="btn-back-multi" class="btn secondary">← Back</button>
+
+      <div id="multiStatus" aria-live="polite"></div>
+
+      <label for="sdpInput" style="font-size:0.8rem;opacity:0.6;text-align:left;display:block;margin-top:8px;">
+        Paste connection code:
+      </label>
+      <textarea id="sdpInput" placeholder="Paste code here…" aria-label="Connection code input"></textarea>
+
+      <label for="sdpOutput" style="font-size:0.8rem;opacity:0.6;text-align:left;display:block;margin-top:4px;">
+        Your connection code (copy &amp; share):
+      </label>
+      <textarea id="sdpOutput" readonly placeholder="Generated code will appear here…"
+                aria-label="Your connection code" onclick="this.select()"></textarea>
+
+      <button id="btn-sdp-connect" class="btn green hidden">Connect</button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       Race over / results screen
+       ============================================================ -->
+  <div id="raceOver" class="overlay hidden" role="dialog" aria-labelledby="raceOverTitle">
+    <div class="panel">
+      <h2 id="raceOverTitle">🏆 Race Finished!</h2>
+      <div id="results" role="list" aria-label="Race results"></div>
+      <button id="btn-restart" class="btn green" autofocus>🔄 Race Again</button>
+      <button id="btn-menu"    class="btn secondary">🏠 Main Menu</button>
+    </div>
+  </div>
+
+  <!-- Game scripts (ES modules) -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+/* ============================================================
+   GenerateRacer – game stylesheet
+   ============================================================ */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- Canvas ---- */
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- Utility ---- */
+.hidden {
+  display: none !important;
+}
+
+/* ============================================================
+   HUD
+   ============================================================ */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 20px;
+  gap: 12px;
+}
+
+.hud-pill {
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 6px 14px;
+  color: #fff;
+  text-shadow: 0 1px 3px #000;
+  backdrop-filter: blur(4px);
+}
+
+#hud-position {
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 3ch;
+  text-align: center;
+}
+
+#hud-lap {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+#hud-time {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-speedbox {
+  text-align: right;
+}
+
+#hud-speed {
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1;
+  display: block;
+}
+
+.hud-unit {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+#hud-bestlap {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+/* ============================================================
+   Touch D-pad controls
+   ============================================================ */
+#touchControls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 180px;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 24px 24px;
+}
+
+.touch-side {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2.5px solid rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: none;
+  pointer-events: auto;
+  transition: background 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-btn:active,
+.touch-btn.pressed {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+#btn-gas {
+  background: rgba(0, 200, 60, 0.28);
+  border-color: rgba(0, 200, 60, 0.6);
+}
+
+#btn-brake {
+  background: rgba(220, 40, 40, 0.28);
+  border-color: rgba(220, 40, 40, 0.6);
+}
+
+/* ============================================================
+   Overlay panels (menus, results)
+   ============================================================ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.panel {
+  background: rgba(15, 15, 20, 0.92);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 36px 44px;
+  text-align: center;
+  color: #fff;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+.panel h1 {
+  font-size: 3rem;
+  margin-bottom: 6px;
+  letter-spacing: -1px;
+}
+
+.panel .subtitle {
+  font-size: 1rem;
+  opacity: 0.6;
+  margin-bottom: 28px;
+}
+
+.panel h2 {
+  font-size: 1.8rem;
+  margin-bottom: 24px;
+}
+
+/* Buttons */
+.btn {
+  display: block;
+  width: 100%;
+  padding: 14px 24px;
+  margin: 10px 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  background: #c0392b;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  letter-spacing: 0.5px;
+}
+
+.btn:hover { background: #a93226; }
+.btn:active { transform: scale(0.97); }
+
+.btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+}
+.btn.secondary:hover { background: rgba(255, 255, 255, 0.2); }
+
+.btn.green  { background: #27ae60; }
+.btn.green:hover { background: #1e8449; }
+
+/* Multiplayer status */
+#multiStatus {
+  min-height: 44px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+textarea {
+  width: 100%;
+  height: 72px;
+  margin: 6px 0;
+  background: #111;
+  color: #4fc;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  resize: none;
+}
+
+textarea::placeholder {
+  color: #555;
+}
+
+/* ============================================================
+   Countdown
+   ============================================================ */
+#countdown {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#countdownNum {
+  font-size: min(25vw, 220px);
+  font-weight: 900;
+  color: #ff4444;
+  text-shadow: 0 0 40px rgba(255, 68, 68, 0.6), 0 4px 12px rgba(0, 0, 0, 0.9);
+  animation: pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%       { transform: scale(1.12); opacity: 0.85; }
+}
+
+/* ============================================================
+   Race-over results
+   ============================================================ */
+#results {
+  text-align: left;
+  margin: 0 0 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 3.5rem 5rem 1fr;
+  gap: 4px;
+  align-items: center;
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.result-row:last-child { border-bottom: none; }
+.result-row:nth-child(odd)  { background: rgba(255,255,255,0.03); }
+.result-row:nth-child(even) { background: rgba(255,255,255,0.065); }
+
+.result-row .pos  { font-weight: 800; font-size: 1rem; }
+.result-row .name { font-weight: 700; }
+.result-row .info { font-size: 0.78rem; opacity: 0.7; }
+
+/* ============================================================
+   Keyboard hint (bottom centre, desktop only)
+   ============================================================ */
+#keyHint {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.4);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Responsive adjustments
+   ============================================================ */
+
+/* Large touch screens / tablets in portrait */
+@media (max-width: 600px) {
+  .panel {
+    padding: 24px 20px;
+  }
+  .panel h1 { font-size: 2.2rem; }
+  .touch-btn { width: 68px; height: 68px; font-size: 1.5rem; }
+}
+
+/* Wide screens (Tesla MCU, desktop) */
+@media (min-width: 1400px) {
+  .touch-btn { width: 90px; height: 90px; }
+  #hud-position { font-size: 3.5rem; }
+  #hud-speed    { font-size: 3.5rem; }
+}
+
+/* Landscape phone: compact HUD */
+@media (max-height: 420px) {
+  .hud-top { padding: 6px 12px; }
+  #hud-position, #hud-speed { font-size: 2rem; }
+  #touchControls { height: 120px; padding: 0 16px 12px; }
+  .touch-btn { width: 60px; height: 60px; font-size: 1.3rem; }
+}
