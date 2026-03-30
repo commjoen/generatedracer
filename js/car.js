@@ -15,6 +15,7 @@ import {
   TURN_RATE,
   OFFTRACK_SPEED_CAP, OFFTRACK_FRICTION_MULT,
   CAR_COLORS,
+  TURBO_DURATION, TURBO_COOLDOWN, TURBO_SPEED_MULT,
 } from './constants.js';
 import { isOnTrack } from './track.js';
 
@@ -36,7 +37,16 @@ export class Car {
     this.speed = 0;   // scalar forward speed (negative = reversing)
 
     // Input snapshot (filled each frame by player-input or AI)
-    this.input = { gas: 0, brake: 0, steer: 0 };  // all in [-1, 1]
+    this.input = { gas: 0, brake: 0, steer: 0, turbo: false, shoot: false };
+
+    // Turbo boost
+    this.turboActive   = false;
+    this.turboTimer    = 0;
+    this.turboCooldown = 0;
+
+    // Combat
+    this.stunTimer     = 0;
+    this.shootCooldown = 0;
 
     // Race state (managed by race.js)
     this.lap               = 0;
@@ -52,13 +62,30 @@ export class Car {
   update(dt) {
     const onTrack = isOnTrack(this.x, this.y);
 
+    // ---- Timers --------------------------------------------------------------
+    if (this.stunTimer     > 0) this.stunTimer     = Math.max(0, this.stunTimer     - dt);
+    if (this.shootCooldown > 0) this.shootCooldown = Math.max(0, this.shootCooldown - dt);
+
+    // ---- Turbo ---------------------------------------------------------------
+    if (this.input.turbo && !this.turboActive && this.turboCooldown <= 0) {
+      this.turboActive   = true;
+      this.turboTimer    = TURBO_DURATION;
+      this.turboCooldown = TURBO_COOLDOWN;
+    }
+    if (this.turboActive) {
+      this.turboTimer = Math.max(0, this.turboTimer - dt);
+      if (this.turboTimer <= 0) this.turboActive = false;
+    }
+    if (this.turboCooldown > 0) this.turboCooldown = Math.max(0, this.turboCooldown - dt);
+
     // ---- Speed / acceleration ------------------------------------------------
     const frictionMult = onTrack ? 1 : OFFTRACK_FRICTION_MULT;
     const friction     = COAST_FRICTION * frictionMult;
+    const isStunned    = this.stunTimer > 0;
 
-    if (this.input.gas > 0) {
+    if (!isStunned && this.input.gas > 0) {
       this.speed += ACCELERATION * this.input.gas * dt;
-    } else if (this.input.brake > 0) {
+    } else if (!isStunned && this.input.brake > 0) {
       this.speed -= BRAKING * this.input.brake * dt;
     }
 
@@ -69,17 +96,20 @@ export class Car {
       this.speed = Math.min(0, this.speed + friction * dt);
     }
 
-    // Clamp speed
+    // Clamp speed (turbo raises the forward cap)
+    const turboMult = this.turboActive ? TURBO_SPEED_MULT : 1;
     const maxFwd = onTrack
-      ? MAX_SPEED
-      : MAX_SPEED * OFFTRACK_SPEED_CAP;
+      ? MAX_SPEED * turboMult
+      : MAX_SPEED * OFFTRACK_SPEED_CAP * turboMult;
     this.speed = Math.max(-MAX_REVERSE_SPEED, Math.min(maxFwd, this.speed));
 
     // ---- Steering ------------------------------------------------------------
     // Turn rate scales with |speed| / MAX_SPEED so it feels snappy at all speeds
     const speedFraction = Math.abs(this.speed) / MAX_SPEED;
     const effectiveTurn = TURN_RATE * speedFraction * Math.sign(this.speed);
-    this.angle += this.input.steer * effectiveTurn * dt;
+    if (!isStunned) {
+      this.angle += this.input.steer * effectiveTurn * dt;
+    }
 
     // ---- Position update -----------------------------------------------------
     this.x += Math.cos(this.angle) * this.speed * dt;
@@ -94,6 +124,19 @@ export class Car {
 
     const hl = CAR_LENGTH / 2;
     const hw = CAR_WIDTH  / 2;
+
+    // Turbo flame (drawn before car body so it appears behind)
+    if (this.turboActive) {
+      const flameLen = 22 + Math.random() * 12;
+      const grad = ctx.createLinearGradient(-hl, 0, -hl - flameLen, 0);
+      grad.addColorStop(0,   'rgba(255,200,0,0.95)');
+      grad.addColorStop(0.4, 'rgba(255,80,0,0.7)');
+      grad.addColorStop(1,   'rgba(255,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(-hl - flameLen / 2, 0, flameLen / 2, hw * 0.65, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -122,6 +165,19 @@ export class Car {
     ctx.fillStyle = '#f00';
     ctx.fillRect(-hl + 1, -hw * 0.65, 5, 4);
     ctx.fillRect(-hl + 1,  hw * 0.25, 5, 4);
+
+    // Stun flash overlay
+    if (this.stunTimer > 0) {
+      const alpha = 0.35 + 0.3 * Math.sin(performance.now() * 0.02);
+      ctx.fillStyle = `rgba(255,255,0,${alpha.toFixed(2)})`;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(-hl, -hw, CAR_LENGTH, CAR_WIDTH, 5);
+      } else {
+        ctx.rect(-hl, -hw, CAR_LENGTH, CAR_WIDTH);
+      }
+      ctx.fill();
+    }
 
     ctx.restore();
   }

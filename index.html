@@ -21,7 +21,7 @@
   <canvas id="gameCanvas" aria-label="Racing game canvas"></canvas>
 
   <!-- ============================================================
-       HUD  (shown while racing)
+       HUD  (shown while racing – Player 1)
        ============================================================ -->
   <div id="hud" class="hidden" role="status" aria-live="polite">
     <div class="hud-top">
@@ -35,6 +35,28 @@
         <span id="hud-speed" aria-label="Speed in kilometres per hour">0</span>
         <span class="hud-unit">km/h</span>
       </div>
+      <div id="hud-turbo" class="hud-pill hud-turbo hud-turbo-ready" aria-label="Turbo status">⚡ Ready</div>
+      <div id="hud-shoot" class="hud-pill hud-shoot hud-shoot-ready" aria-label="Shoot status">🔫 Ready</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       HUD  (Player 2 – splitscreen only)
+       ============================================================ -->
+  <div id="hud2" class="hidden" role="status" aria-live="polite">
+    <div class="hud-top">
+      <div class="hud-pill" id="hud2-position" aria-label="Player 2 position">1st</div>
+      <div class="hud-pill">
+        <div id="hud2-lap">Lap 1 / 3</div>
+        <div id="hud2-time">0:00.000</div>
+        <div id="hud2-bestlap"></div>
+      </div>
+      <div class="hud-pill hud-speedbox">
+        <span id="hud2-speed" aria-label="Speed in kilometres per hour">0</span>
+        <span class="hud-unit">km/h</span>
+      </div>
+      <div id="hud2-turbo" class="hud-pill hud-turbo hud-turbo-ready" aria-label="Turbo status">⚡ Ready</div>
+      <div id="hud2-shoot" class="hud-pill hud-shoot hud-shoot-ready" aria-label="Shoot status">🔫 Ready</div>
     </div>
   </div>
 
@@ -56,7 +78,7 @@
        Keyboard hint (desktop)
        ============================================================ -->
   <div id="keyHint" aria-hidden="true">
-    Arrow keys / WASD to drive &nbsp;•&nbsp; Gamepad supported
+    Arrow keys / WASD to drive &nbsp;•&nbsp; E / L = Turbo &nbsp;•&nbsp; Q / P = Shoot &nbsp;•&nbsp; Gamepad supported
   </div>
 
   <!-- ============================================================
@@ -76,6 +98,9 @@
 
       <button id="btn-single" class="btn" autofocus>
         🏁 Single Player
+      </button>
+      <button id="btn-splitscreen" class="btn green">
+        🖥️ Local Splitscreen
       </button>
       <button id="btn-multi" class="btn secondary">
         🌐 Multiplayer (Online)
