@@ -16,6 +16,7 @@ import {
   OFFTRACK_SPEED_CAP, OFFTRACK_FRICTION_MULT,
   CAR_COLORS,
   TURBO_DURATION, TURBO_COOLDOWN, TURBO_SPEED_MULT,
+  TURBO_FLAME_BASE, TURBO_FLAME_RAND,
 } from './constants.js';
 import { isOnTrack } from './track.js';
 
@@ -116,8 +117,11 @@ export class Car {
     this.y += Math.sin(this.angle) * this.speed * dt;
   }
 
-  /** Draw the car onto `ctx` (world-space context). */
-  draw(ctx) {
+  /** Draw the car onto `ctx` (world-space context).
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} [now] – current timestamp ms (performance.now()); pass once per frame
+   */
+  draw(ctx, now = performance.now()) {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
@@ -127,7 +131,7 @@ export class Car {
 
     // Turbo flame (drawn before car body so it appears behind)
     if (this.turboActive) {
-      const flameLen = 22 + Math.random() * 12;
+      const flameLen = TURBO_FLAME_BASE + Math.random() * TURBO_FLAME_RAND;
       const grad = ctx.createLinearGradient(-hl, 0, -hl - flameLen, 0);
       grad.addColorStop(0,   'rgba(255,200,0,0.95)');
       grad.addColorStop(0.4, 'rgba(255,80,0,0.7)');
@@ -168,7 +172,7 @@ export class Car {
 
     // Stun flash overlay
     if (this.stunTimer > 0) {
-      const alpha = 0.35 + 0.3 * Math.sin(performance.now() * 0.02);
+      const alpha = 0.35 + 0.3 * Math.sin(now * 0.02);
       ctx.fillStyle = `rgba(255,255,0,${alpha.toFixed(2)})`;
       ctx.beginPath();
       if (ctx.roundRect) {

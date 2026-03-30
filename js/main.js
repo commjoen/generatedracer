@@ -17,7 +17,7 @@ import { Projectile } from './projectile.js';
 import {
   WORLD_W, WORLD_H, NUM_AI, MAX_PLAYERS, CAR_NAMES, ORDINALS,
   CAM_LERP, VIEWPORT_WORLD_W, VIEWPORT_WORLD_H, NUM_LAPS,
-  PROJECTILE_COOLDOWN, CAR_LENGTH,
+  PROJECTILE_COOLDOWN, CAR_LENGTH, PROJECTILE_SPAWN_OFFSET,
 } from './constants.js';
 import { trackProgress } from './track.js';
 
@@ -370,8 +370,8 @@ function updateCamera(player, cam) {
 // Fire a projectile from the front of a car
 // ---------------------------------------------------------------------------
 function fireProjectile(car) {
-  const spawnX = car.x + Math.cos(car.angle) * (CAR_LENGTH / 2 + 8);
-  const spawnY = car.y + Math.sin(car.angle) * (CAR_LENGTH / 2 + 8);
+  const spawnX = car.x + Math.cos(car.angle) * (CAR_LENGTH / 2 + PROJECTILE_SPAWN_OFFSET);
+  const spawnY = car.y + Math.sin(car.angle) * (CAR_LENGTH / 2 + PROJECTILE_SPAWN_OFFSET);
   projectiles.push(new Projectile(spawnX, spawnY, car.angle, car.id));
   car.shootCooldown = PROJECTILE_COOLDOWN;
 }
@@ -479,7 +479,8 @@ function renderViewport(cam, offsetX, offsetY, viewW, viewH) {
 
   // Cars (back to front by Y for painter's algorithm)
   const sorted = [...cars].sort((a, b) => a.y - b.y);
-  sorted.forEach((c) => c.draw(ctx));
+  const now    = performance.now();
+  sorted.forEach((c) => c.draw(ctx, now));
 
   // Car name labels
   cars.forEach((c) => {
