@@ -105,7 +105,10 @@ export class RaceManager {
         const prog = trackProgress(c.x, c.y);
         // sortKey: larger = further along. Finished cars rank above all racing cars.
         const sortKey = s.finishTime !== null
-          ? NUM_LAPS + 1 + i * 0.0001  // finished: sorted by index (proxy for finish order)
+          // Finished cars rank above all racing cars (base: NUM_LAPS+2).
+          // Subtracting finishTime/1e9 means an earlier (smaller) finishTime
+          // produces a smaller subtraction → larger sortKey → better rank.
+          ? NUM_LAPS + 2 - (s.finishTime / 1e9)
           : (s.lap + prog);
         return { i, sortKey };
       })
