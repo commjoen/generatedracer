@@ -500,6 +500,66 @@ function renderViewport(cam, offsetX, offsetY, viewW, viewH) {
 }
 
 // ---------------------------------------------------------------------------
+// QR code helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a QR code inside #sdpQR for the given connection-code text,
+ * and show the #sdpActions section (QR + copy button).
+ * Silently does nothing if QRCode is unavailable.
+ * @param {string} codeText  The base64 SDP offer or answer code.
+ */
+function showSdpQR(codeText) {
+  const actionsEl = document.getElementById('sdpActions');
+  const qrEl      = document.getElementById('sdpQR');
+  if (!actionsEl || !qrEl) return;
+
+  // Clear any previously rendered QR
+  qrEl.innerHTML = '';
+
+  if (typeof QRCode !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    try {
+      QRCode.toCanvas(canvas, codeText, 200);
+      qrEl.appendChild(canvas);
+    } catch (_) {
+      // Data too long or other error – hide QR silently
+      qrEl.innerHTML = '';
+    }
+  }
+
+  actionsEl.classList.remove('hidden');
+}
+
+/** Hide the QR / copy-button section and clear the canvas. */
+function hideSdpQR() {
+  const actionsEl = document.getElementById('sdpActions');
+  const qrEl      = document.getElementById('sdpQR');
+  if (actionsEl) actionsEl.classList.add('hidden');
+  if (qrEl)      qrEl.innerHTML = '';
+}
+
+// Copy-to-clipboard button
+document.getElementById('btn-copy-sdp').addEventListener('click', () => {
+  const code = document.getElementById('sdpOutput').value;
+  if (!code) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.getElementById('btn-copy-sdp');
+      const orig = btn.textContent;
+      btn.textContent = '✅ Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    }).catch(() => {
+      document.getElementById('sdpOutput').select();
+      document.execCommand('copy');
+    });
+  } else {
+    document.getElementById('sdpOutput').select();
+    document.execCommand('copy');
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Multiplayer wiring
 // ---------------------------------------------------------------------------
 function setupNetworkCallbacks() {
@@ -547,6 +607,7 @@ document.getElementById('btn-multi').addEventListener('click', () => {
 });
 
 document.getElementById('btn-back-multi').addEventListener('click', () => {
+  hideSdpQR();
   showScreen('mainMenu');
   state = STATE.MENU;
 });
@@ -567,13 +628,15 @@ document.getElementById('btn-host').addEventListener('click', async () => {
   const inEl     = document.getElementById('sdpInput');
   const connectEl = document.getElementById('btn-sdp-connect');
 
+  hideSdpQR();
   statusEl.textContent = '⏳ Generating offer code…';
   setupNetworkCallbacks();
 
   try {
     const offerCode = await network.createOffer();
     outEl.value     = offerCode;
-    statusEl.textContent = '📋 Copy the code above and share it with your opponent.\nThen paste their answer code below.';
+    statusEl.textContent = '📋 Copy or scan the code below and share it with your opponent.\nThen paste their answer code here.';
+    showSdpQR(offerCode);
     connectEl.classList.remove('hidden');
     connectEl.textContent = 'Accept Answer';
     connectEl.onclick = async () => {
@@ -609,6 +672,7 @@ document.getElementById('btn-join').addEventListener('click', async () => {
   const inEl      = document.getElementById('sdpInput');
   const connectEl = document.getElementById('btn-sdp-connect');
 
+  hideSdpQR();
   statusEl.textContent = 'Paste the host\'s offer code in the box below, then click Connect.';
   connectEl.classList.remove('hidden');
   connectEl.textContent = 'Connect';
@@ -623,7 +687,8 @@ document.getElementById('btn-join').addEventListener('click', async () => {
     try {
       const answerCode = await network.joinRoom(offerCode);
       outEl.value = answerCode;
-      statusEl.textContent = '📋 Copy the answer code above and send it to the host.';
+      statusEl.textContent = '📋 Copy or scan the answer code below and send it to the host.';
+      showSdpQR(answerCode);
     } catch (e) {
       statusEl.textContent = `❌ ${e.message}`;
     }

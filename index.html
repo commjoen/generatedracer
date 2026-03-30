@@ -139,6 +139,14 @@
       <textarea id="sdpOutput" readonly placeholder="Generated code will appear here…"
                 aria-label="Your connection code" onclick="this.select()"></textarea>
 
+      <div id="sdpActions" class="sdp-actions hidden">
+        <button id="btn-copy-sdp" class="btn secondary btn-sm" aria-label="Copy code to clipboard">
+          📋 Copy to Clipboard
+        </button>
+        <div id="sdpQR" class="qr-container" aria-label="QR code for connection code"></div>
+        <p class="qr-hint">Scan with your phone's camera to copy the code</p>
+      </div>
+
       <button id="btn-sdp-connect" class="btn green hidden">Connect</button>
     </div>
   </div>
@@ -155,6 +163,8 @@
     </div>
   </div>
 
+  <!-- QR Code library (for multiplayer connection code sharing) -->
+  <script src="js/lib/qrcode.js"></script>
   <!-- Game scripts (ES modules) -->
   <script type="module" src="js/main.js"></script>
 </body>
