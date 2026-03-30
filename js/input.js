@@ -2,18 +2,28 @@
  * input.js – Unified input handler.
  *
  * Supports:
- *  • Keyboard  (Arrow keys and WASD)
+ *  • Keyboard  (Arrow keys and/or WASD, configurable via keySet)
  *  • Touch     (virtual D-pad buttons rendered by index.html)
  *  • Gamepad   (Web Gamepad API – axes + buttons, covers Tesla MCU)
  */
 
 export class InputHandler {
-  constructor() {
+  /**
+   * @param {'all'|'wasd'|'arrows'} keySet
+   *   'all'    – both WASD and Arrow keys (single-player default)
+   *   'wasd'   – WASD + E (turbo) + Q (shoot)
+   *   'arrows' – Arrow keys + L (turbo) + P (shoot)
+   */
+  constructor(keySet = 'all') {
+    this.keySet = keySet;
+
     // Logical state
     this.left  = false;
     this.right = false;
     this.gas   = false;
     this.brake = false;
+    this.turbo = false;
+    this.shoot = false;
 
     // Touch state (set from DOM event listeners in main.js via touchButtons map)
     this.touch = { left: false, right: false, gas: false, brake: false };
@@ -22,37 +32,69 @@ export class InputHandler {
     this._gamepadIndex = null;
 
     this._bindKeyboard();
-    this._bindGamepadEvents();
+    if (keySet !== 'arrows') {
+      this._bindGamepadEvents();
+    }
   }
 
   _bindKeyboard() {
     const down = (e) => {
-      switch (e.code) {
-        case 'ArrowLeft':  case 'KeyA': this.left  = true;  break;
-        case 'ArrowRight': case 'KeyD': this.right = true;  break;
-        case 'ArrowUp':    case 'KeyW': this.gas   = true;  break;
-        case 'ArrowDown':  case 'KeyS': this.brake = true;  break;
+      const k = e.code;
+      if (this.keySet === 'all' || this.keySet === 'wasd') {
+        if (k === 'KeyA') this.left  = true;
+        if (k === 'KeyD') this.right = true;
+        if (k === 'KeyW') this.gas   = true;
+        if (k === 'KeyS') this.brake = true;
+        if (k === 'KeyE') this.turbo = true;
+        if (k === 'KeyQ') this.shoot = true;
+      }
+      if (this.keySet === 'all' || this.keySet === 'arrows') {
+        if (k === 'ArrowLeft')  this.left  = true;
+        if (k === 'ArrowRight') this.right = true;
+        if (k === 'ArrowUp')    this.gas   = true;
+        if (k === 'ArrowDown')  this.brake = true;
+        if (k === 'KeyL')       this.turbo = true;
+        if (k === 'KeyP')       this.shoot = true;
       }
     };
     const up = (e) => {
-      switch (e.code) {
-        case 'ArrowLeft':  case 'KeyA': this.left  = false; break;
-        case 'ArrowRight': case 'KeyD': this.right = false; break;
-        case 'ArrowUp':    case 'KeyW': this.gas   = false; break;
-        case 'ArrowDown':  case 'KeyS': this.brake = false; break;
+      const k = e.code;
+      if (this.keySet === 'all' || this.keySet === 'wasd') {
+        if (k === 'KeyA') this.left  = false;
+        if (k === 'KeyD') this.right = false;
+        if (k === 'KeyW') this.gas   = false;
+        if (k === 'KeyS') this.brake = false;
+        if (k === 'KeyE') this.turbo = false;
+        if (k === 'KeyQ') this.shoot = false;
+      }
+      if (this.keySet === 'all' || this.keySet === 'arrows') {
+        if (k === 'ArrowLeft')  this.left  = false;
+        if (k === 'ArrowRight') this.right = false;
+        if (k === 'ArrowUp')    this.gas   = false;
+        if (k === 'ArrowDown')  this.brake = false;
+        if (k === 'KeyL')       this.turbo = false;
+        if (k === 'KeyP')       this.shoot = false;
       }
     };
+    this._onKeyDown = down;
+    this._onKeyUp   = up;
     window.addEventListener('keydown', down);
     window.addEventListener('keyup',   up);
   }
 
   _bindGamepadEvents() {
-    window.addEventListener('gamepadconnected', (e) => {
-      this._gamepadIndex = e.gamepad.index;
-    });
-    window.addEventListener('gamepaddisconnected', () => {
-      this._gamepadIndex = null;
-    });
+    this._onGpadConn   = (e) => { this._gamepadIndex = e.gamepad.index; };
+    this._onGpadDisconn = ()  => { this._gamepadIndex = null; };
+    window.addEventListener('gamepadconnected',    this._onGpadConn);
+    window.addEventListener('gamepaddisconnected', this._onGpadDisconn);
+  }
+
+  /** Remove all event listeners (call when discarding this handler). */
+  destroy() {
+    window.removeEventListener('keydown', this._onKeyDown);
+    window.removeEventListener('keyup',   this._onKeyUp);
+    if (this._onGpadConn)    window.removeEventListener('gamepadconnected',    this._onGpadConn);
+    if (this._onGpadDisconn) window.removeEventListener('gamepaddisconnected', this._onGpadDisconn);
   }
 
   /** Call once per frame to poll Gamepad API. */
@@ -103,6 +145,8 @@ export class InputHandler {
    *   steer: -1 (left) … +1 (right)
    *   gas:    0 … 1
    *   brake:  0 … 1
+   *   turbo:  boolean
+   *   shoot:  boolean
    */
   get() {
     const left  = this.left  || this.touch.left  || this._gpLeft  || false;
@@ -123,6 +167,8 @@ export class InputHandler {
       steer,
       gas:   gas   ? 1 : 0,
       brake: brake ? 1 : 0,
+      turbo: this.turbo,
+      shoot: this.shoot,
     };
   }
 }

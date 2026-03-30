@@ -3,6 +3,7 @@
  *
  * States:  MENU → COUNTDOWN → RACING → FINISHED
  *          MENU → MULTIPLAYER_MENU → (host or guest) → COUNTDOWN → …
+ *          MENU → SPLITSCREEN → COUNTDOWN → …
  */
 
 import { Car, resolveCarCollision } from './car.js';
@@ -12,9 +13,11 @@ import { AiController } from './ai.js';
 import { RaceManager, formatTime } from './race.js';
 import { Hud } from './hud.js';
 import { Network } from './network.js';
+import { Projectile } from './projectile.js';
 import {
   WORLD_W, WORLD_H, NUM_AI, MAX_PLAYERS, CAR_NAMES, ORDINALS,
   CAM_LERP, VIEWPORT_WORLD_W, VIEWPORT_WORLD_H, NUM_LAPS,
+  PROJECTILE_COOLDOWN, CAR_LENGTH, PROJECTILE_SPAWN_OFFSET,
 } from './constants.js';
 import { trackProgress } from './track.js';
 
@@ -48,15 +51,22 @@ let state = STATE.MENU;
 // ---------------------------------------------------------------------------
 const canvas  = document.getElementById('gameCanvas');
 const ctx     = canvas.getContext('2d');
-const input   = new InputHandler();
-const hud     = new Hud();
+const input   = new InputHandler('all');      // single-player / online: both keys
+const inputP1 = new InputHandler('wasd');     // splitscreen player 1
+const inputP2 = new InputHandler('arrows');   // splitscreen player 2
+const hud     = new Hud('hud');
+const hud2    = new Hud('hud2');
 const network = new Network();
 
 let cars      = [];
 let aiControllers = [];
 let race      = null;
-let playerCarIdx = 0;  // index of the local player's car
+let projectiles   = [];           // active Projectile instances
+let playerCarIdx  = 0;            // local player's car index (P1)
+let playerCarIdx2 = 1;            // second player's car index (splitscreen)
+let isSplitscreen = false;
 let camera    = { x: START_POSITIONS[0].x, y: START_POSITIONS[0].y };
+let camera2   = { x: START_POSITIONS[1].x, y: START_POSITIONS[1].y };
 
 let countdownValue  = 3;
 let countdownTimer  = 0;
@@ -79,17 +89,22 @@ resize();
 // ---------------------------------------------------------------------------
 // Car / race initialisation
 // ---------------------------------------------------------------------------
-function initRace(numAI = NUM_AI) {
+function initRace(numAI = NUM_AI, twoHumans = false) {
   cars = [];
   aiControllers = [];
-  playerCarIdx = 0;
+  projectiles   = [];
+  playerCarIdx  = 0;
+  playerCarIdx2 = 1;
 
-  for (let i = 0; i < Math.min(numAI + 1, MAX_PLAYERS); i++) {
+  const numHumans = twoHumans ? 2 : 1;
+  const total = Math.min(numHumans + numAI, MAX_PLAYERS);
+
+  for (let i = 0; i < total; i++) {
     const sp  = START_POSITIONS[i];
     const car = new Car(i, sp.x, sp.y, sp.angle);
     cars.push(car);
 
-    if (i > 0) {
+    if (i >= numHumans) {
       // AI car
       aiControllers.push(new AiController(car));
     }
@@ -112,7 +127,7 @@ input.bindTouchButtons(
 // UI helpers
 // ---------------------------------------------------------------------------
 function showScreen(id) {
-  ['mainMenu', 'multiMenu', 'raceOver', 'countdown', 'hud', 'touchControls']
+  ['mainMenu', 'multiMenu', 'raceOver', 'countdown', 'hud', 'hud2', 'touchControls']
     .forEach((s) => {
       const el = document.getElementById(s);
       if (el) el.classList.toggle('hidden', s !== id);
@@ -121,8 +136,12 @@ function showScreen(id) {
 
 function showHudAndControls() {
   document.getElementById('hud').classList.remove('hidden');
-  // Show touch controls on touch devices
-  if (window.matchMedia('(pointer: coarse)').matches) {
+  if (isSplitscreen) {
+    document.getElementById('hud2').classList.remove('hidden');
+    document.body.classList.add('splitscreen');
+  }
+  // Show touch controls on touch devices (single player only)
+  if (!isSplitscreen && window.matchMedia('(pointer: coarse)').matches) {
     document.getElementById('touchControls').classList.remove('hidden');
   }
 }
@@ -154,7 +173,20 @@ function startCountdown() {
 // Game start / restart
 // ---------------------------------------------------------------------------
 function startSinglePlayer() {
-  initRace(NUM_AI);
+  isSplitscreen = false;
+  document.body.classList.remove('splitscreen');
+  initRace(NUM_AI, false);
+  hideAllScreens();
+  showHudAndControls();
+  startCountdown();
+}
+
+function startSplitscreen() {
+  isSplitscreen = true;
+  document.body.classList.add('splitscreen');
+  initRace(4, true);   // 4 AI + 2 human players
+  camera  = { x: START_POSITIONS[0].x, y: START_POSITIONS[0].y };
+  camera2 = { x: START_POSITIONS[1].x, y: START_POSITIONS[1].y };
   hideAllScreens();
   showHudAndControls();
   startCountdown();
@@ -162,7 +194,11 @@ function startSinglePlayer() {
 
 function restartGame() {
   network.destroy();
-  startSinglePlayer();
+  if (isSplitscreen) {
+    startSplitscreen();
+  } else {
+    startSinglePlayer();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +207,8 @@ function restartGame() {
 function showFinished() {
   state = STATE.FINISHED;
   hud.hide();
+  hud2.hide();
+  document.body.classList.remove('splitscreen');
   document.getElementById('touchControls').classList.add('hidden');
 
   const results  = race.getResults();
@@ -180,10 +218,16 @@ function showFinished() {
     const total   = r.finishTime
       ? formatTime(r.finishTime - race.startTime)
       : `Lap ${r.lap + 1}/${NUM_LAPS}`;
-    const isPlayer = r.id === playerCarIdx;
-    return `<div class="result-row">
+    let name;
+    if (isSplitscreen) {
+      name = r.id === 0 ? 'P1 (WASD)' : r.id === 1 ? 'P2 (↑↓←→)' : `CPU ${r.id}`;
+    } else {
+      name = r.id === playerCarIdx ? 'YOU' : `CPU ${r.id}`;
+    }
+    const isHuman = isSplitscreen ? (r.id === 0 || r.id === 1) : r.id === playerCarIdx;
+    return `<div class="result-row${isHuman ? ' result-human' : ''}">
       <span class="pos">${ORDINALS[r.position - 1] || `${r.position}th`}</span>
-      <span class="name">${isPlayer ? 'YOU' : `CPU ${r.id}`}</span>
+      <span class="name">${name}</span>
       <span class="info">${total} (best lap: ${lap})</span>
     </div>`;
   }).join('');
@@ -234,6 +278,7 @@ function updateCountdown(dt) {
       state = STATE.RACING;
       race.start();
       hud.show();
+      if (isSplitscreen) hud2.show();
     } else {
       numEl.textContent = countdownValue;
       numEl.style.color = countdownValue === 1 ? '#ffaa00' : '#ff4444';
@@ -243,12 +288,28 @@ function updateCountdown(dt) {
 
 function updateRacing(dt, ts) {
   // ---- Human player input ---------------------------------------------------
-  const playerInput = input.get();
+  const playerInput = isSplitscreen ? inputP1.get() : input.get();
   cars[playerCarIdx].input = playerInput;
+
+  // Splitscreen: second player input
+  if (isSplitscreen) {
+    const p2Input = inputP2.get();
+    cars[playerCarIdx2].input = p2Input;
+
+    // Player 2 shooting
+    if (p2Input.shoot && cars[playerCarIdx2].shootCooldown <= 0) {
+      fireProjectile(cars[playerCarIdx2]);
+    }
+  }
 
   // If guest, override with input from host (already applied); send our input
   if (network.isGuest && network.connected) {
     network.sendInput(playerInput);
+  }
+
+  // Player 1 shooting
+  if (playerInput.shoot && cars[playerCarIdx].shootCooldown <= 0) {
+    fireProjectile(cars[playerCarIdx]);
   }
 
   // ---- AI input -------------------------------------------------------------
@@ -269,11 +330,18 @@ function updateRacing(dt, ts) {
     }
   }
 
+  // ---- Projectiles ----------------------------------------------------------
+  projectiles = projectiles.filter((p) => {
+    p.update(dt, cars);
+    return p.active;
+  });
+
   // ---- Race state -----------------------------------------------------------
   race.update(dt);
 
   // ---- HUD ------------------------------------------------------------------
   hud.update(cars[playerCarIdx], race);
+  if (isSplitscreen) hud2.update(cars[playerCarIdx2], race);
 
   // ---- Network: host broadcasts state --------------------------------------
   if (network.isHost && network.connected) {
@@ -293,9 +361,19 @@ function updateRacing(dt, ts) {
 // ---------------------------------------------------------------------------
 // Camera
 // ---------------------------------------------------------------------------
-function updateCamera(player) {
-  camera.x += (player.x - camera.x) * CAM_LERP;
-  camera.y += (player.y - camera.y) * CAM_LERP;
+function updateCamera(player, cam) {
+  cam.x += (player.x - cam.x) * CAM_LERP;
+  cam.y += (player.y - cam.y) * CAM_LERP;
+}
+
+// ---------------------------------------------------------------------------
+// Fire a projectile from the front of a car
+// ---------------------------------------------------------------------------
+function fireProjectile(car) {
+  const spawnX = car.x + Math.cos(car.angle) * (CAR_LENGTH / 2 + PROJECTILE_SPAWN_OFFSET);
+  const spawnY = car.y + Math.sin(car.angle) * (CAR_LENGTH / 2 + PROJECTILE_SPAWN_OFFSET);
+  projectiles.push(new Projectile(spawnX, spawnY, car.angle, car.id));
+  car.shootCooldown = PROJECTILE_COOLDOWN;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,43 +383,52 @@ function render() {
   const W = canvas.width;
   const H = canvas.height;
 
-  // Scale so VIEWPORT_WORLD_W × VIEWPORT_WORLD_H fits in canvas
-  const scale = Math.min(W / VIEWPORT_WORLD_W, H / VIEWPORT_WORLD_H);
-
   if (state === STATE.RACING || state === STATE.FINISHED ||
       state === STATE.COUNTDOWN) {
-    // Update camera toward player car
-    if (cars[playerCarIdx]) updateCamera(cars[playerCarIdx]);
 
-    ctx.save();
+    if (isSplitscreen) {
+      // ---- Splitscreen: render two viewports side by side ------------------
+      const halfW = Math.floor(W / 2);
 
-    // Center viewport on camera
-    ctx.setTransform(
-      scale, 0, 0, scale,
-      W / 2 - camera.x * scale,
-      H / 2 - camera.y * scale,
-    );
+      // Left half – Player 1 (WASD)
+      if (cars[playerCarIdx]) updateCamera(cars[playerCarIdx], camera);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, halfW, H);
+      ctx.clip();
+      renderViewport(camera, 0, 0, halfW, H);
+      ctx.restore();
 
-    // Grass background
-    ctx.fillStyle = '#2d6a1f';
-    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+      // Right half – Player 2 (Arrows)
+      if (cars[playerCarIdx2]) updateCamera(cars[playerCarIdx2], camera2);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(halfW, 0, halfW, H);
+      ctx.clip();
+      renderViewport(camera2, halfW, 0, halfW, H);
+      ctx.restore();
 
-    // Track
-    drawTrack(ctx);
+      // Dividing line
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth   = 3;
+      ctx.beginPath();
+      ctx.moveTo(halfW, 0);
+      ctx.lineTo(halfW, H);
+      ctx.stroke();
 
-    // Cars (back to front by Y for painter's algorithm)
-    const sorted = [...cars].sort((a, b) => a.y - b.y);
-    sorted.forEach((c) => c.draw(ctx));
-
-    // Car name labels
-    cars.forEach((c) => {
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.font      = 'bold 18px Arial';
+      // Player labels at top of each half
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font      = 'bold 14px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(c.id === 0 ? 'YOU' : `CPU ${c.id}`, c.x, c.y - 28);
-    });
+      ctx.fillText('P1 · WASD · E=Boost · Q=Shoot', halfW / 2, H - 10);
+      ctx.fillText('P2 · ↑↓←→ · L=Boost · P=Shoot', halfW + halfW / 2, H - 10);
 
-    ctx.restore();
+    } else {
+      // ---- Single viewport --------------------------------------------------
+      if (cars[playerCarIdx]) updateCamera(cars[playerCarIdx], camera);
+      renderViewport(camera, 0, 0, W, H);
+    }
+
   } else {
     // Menu screens – just clear
     ctx.fillStyle = '#111';
@@ -360,6 +447,56 @@ function render() {
     drawTrack(ctx);
     ctx.restore();
   }
+}
+
+/**
+ * Render the full world into a viewport region.
+ * @param {{x:number,y:number}} cam     – camera centre in world space
+ * @param {number} offsetX              – left edge of viewport in screen px
+ * @param {number} offsetY              – top  edge of viewport in screen px
+ * @param {number} viewW                – viewport width  in screen px
+ * @param {number} viewH                – viewport height in screen px
+ */
+function renderViewport(cam, offsetX, offsetY, viewW, viewH) {
+  const scale = Math.min(viewW / VIEWPORT_WORLD_W, viewH / VIEWPORT_WORLD_H);
+
+  ctx.save();
+  ctx.setTransform(
+    scale, 0, 0, scale,
+    offsetX + viewW / 2 - cam.x * scale,
+    offsetY + viewH / 2 - cam.y * scale,
+  );
+
+  // Grass background
+  ctx.fillStyle = '#2d6a1f';
+  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+  // Track
+  drawTrack(ctx);
+
+  // Projectiles
+  projectiles.forEach((p) => p.draw(ctx));
+
+  // Cars (back to front by Y for painter's algorithm)
+  const sorted = [...cars].sort((a, b) => a.y - b.y);
+  const now    = performance.now();
+  sorted.forEach((c) => c.draw(ctx, now));
+
+  // Car name labels
+  cars.forEach((c) => {
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font      = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    let label;
+    if (isSplitscreen) {
+      label = c.id === 0 ? 'P1' : c.id === 1 ? 'P2' : `CPU ${c.id}`;
+    } else {
+      label = c.id === playerCarIdx ? 'YOU' : `CPU ${c.id}`;
+    }
+    ctx.fillText(label, c.x, c.y - 28);
+  });
+
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------------------
@@ -402,6 +539,8 @@ function setupNetworkCallbacks() {
 // ---------------------------------------------------------------------------
 document.getElementById('btn-single').addEventListener('click', startSinglePlayer);
 
+document.getElementById('btn-splitscreen').addEventListener('click', startSplitscreen);
+
 document.getElementById('btn-multi').addEventListener('click', () => {
   showScreen('multiMenu');
   state = STATE.MULTI_MENU;
@@ -415,6 +554,8 @@ document.getElementById('btn-back-multi').addEventListener('click', () => {
 document.getElementById('btn-restart').addEventListener('click', restartGame);
 document.getElementById('btn-menu').addEventListener('click', () => {
   network.destroy();
+  isSplitscreen = false;
+  document.body.classList.remove('splitscreen');
   showScreen('mainMenu');
   state = STATE.MENU;
 });

@@ -59,3 +59,20 @@ export const STUN_SERVERS = [
 
 // Networking tick rate
 export const NET_TICK_MS = 50;  // 20 Hz state broadcast
+
+// Turbo boost
+export const TURBO_DURATION   = 2.5;  // seconds active
+export const TURBO_COOLDOWN   = 8.0;  // seconds cooldown
+export const TURBO_SPEED_MULT = 1.6;  // speed multiplier when boosting
+
+// Projectiles
+export const PROJECTILE_SPEED        = 900;   // px/s
+export const PROJECTILE_MAX_DIST     = 1400;  // px before despawn
+export const PROJECTILE_HIT_RADIUS   = 28;    // px
+export const PROJECTILE_STUN_TIME    = 1.5;   // seconds stunned
+export const PROJECTILE_COOLDOWN     = 2.5;   // seconds between shots
+export const PROJECTILE_SPAWN_OFFSET = 8;     // px beyond car nose for spawn
+
+// Turbo flame visual
+export const TURBO_FLAME_BASE = 22;  // base flame length (px)
+export const TURBO_FLAME_RAND = 12;  // random length variation (px)
