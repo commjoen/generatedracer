@@ -2,6 +2,7 @@
 
 [![Deploy to GitHub Pages](https://github.com/commjoen/generatedracer/actions/workflows/deploy.yml/badge.svg)](https://github.com/commjoen/generatedracer/actions/workflows/deploy.yml)
 [![Release & Publish Docker Image](https://github.com/commjoen/generatedracer/actions/workflows/release.yml/badge.svg)](https://github.com/commjoen/generatedracer/actions/workflows/release.yml)
+[![Auto Release](https://github.com/commjoen/generatedracer/actions/workflows/auto-release.yml/badge.svg)](https://github.com/commjoen/generatedracer/actions/workflows/auto-release.yml)
 [![GitHub Stars](https://img.shields.io/github/stars/commjoen/generatedracer?style=social)](https://github.com/commjoen/generatedracer/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/commjoen/generatedracer?style=social)](https://github.com/commjoen/generatedracer/network/members)
 [![GitHub Watchers](https://img.shields.io/github/watchers/commjoen/generatedracer?style=social)](https://github.com/commjoen/generatedracer/watchers)
@@ -10,6 +11,14 @@
 [![GitHub issues](https://img.shields.io/github/issues/commjoen/generatedracer)](https://github.com/commjoen/generatedracer/issues)
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/commjoen/generatedracer)](https://github.com/commjoen/generatedracer/pulls)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fcommjoen%2Fgeneratedracer-blue?logo=docker)](https://github.com/commjoen/generatedracer/pkgs/container/generatedracer)
+
+### 🌐 Share
+
+[![Share on Bluesky](https://img.shields.io/badge/Bluesky-Share-0085ff?logo=bluesky&logoColor=white)](https://bsky.app/intent/compose?text=Check%20out%20GenerateRacer%20%F0%9F%8F%8E%EF%B8%8F%20%E2%80%93%20a%20browser-based%20kart%20racing%20game!%20https%3A%2F%2Fcommjoen.github.io%2Fgeneratedracer%2F)
+[![Share on X/Twitter](https://img.shields.io/badge/X%2FTwitter-Share-000000?logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Check%20out%20GenerateRacer%20%F0%9F%8F%8E%EF%B8%8F%20%E2%80%93%20a%20browser-based%20kart%20racing%20game!&url=https%3A%2F%2Fcommjoen.github.io%2Fgeneratedracer%2F&hashtags=gamedev%2Cjavascript%2Ckart)
+[![Share on Facebook](https://img.shields.io/badge/Facebook-Share-1877f2?logo=facebook&logoColor=white)](https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fcommjoen.github.io%2Fgeneratedracer%2F)
+[![Share on LinkedIn](https://img.shields.io/badge/LinkedIn-Share-0a66c2?logo=linkedin&logoColor=white)](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcommjoen.github.io%2Fgeneratedracer%2F)
+[![Share on Mastodon](https://img.shields.io/badge/Mastodon-Share-6364ff?logo=mastodon&logoColor=white)](https://mastodon.social/share?text=Check%20out%20GenerateRacer%20%F0%9F%8F%8E%EF%B8%8F%20%E2%80%93%20a%20browser-based%20kart%20racing%20game!%20https%3A%2F%2Fcommjoen.github.io%2Fgeneratedracer%2F)
 
 A browser-based kart racing game – think Mario Kart meets Wacky Wheels,
 running entirely in your browser.  No installation, no account, no plugins.
@@ -123,9 +132,21 @@ to `main` via `.github/workflows/deploy.yml`.
 
 Go to **Settings → Pages → Source → GitHub Actions** to enable it.
 
-### Releases & Container Registry
+### Auto Release (on merge to `main`)
 
-Pushing a tag in the form `v1.2.3` (or triggering the workflow manually) will:
+Every merge to `main` automatically triggers `.github/workflows/auto-release.yml`, which:
+
+1. Reads the current `APP_VERSION` from `js/constants.js`
+2. Bumps the **patch** version (e.g. `1.0.0` → `1.0.1`)
+3. Commits the version bump back to `main` — the workflow skips itself when the commit message starts with `chore: bump version to` to prevent infinite loops
+4. Creates a git tag (`v1.0.1`)
+5. Builds and pushes the Docker image to **GitHub Container Registry** (`ghcr.io/commjoen/generatedracer`)
+   with tags `latest`, `1`, `1.0`, and `1.0.1`
+6. Creates a **GitHub Release** with auto-generated release notes
+
+### Manual / Tag-based Releases
+
+Pushing a tag in the form `v1.2.3` (or triggering the release workflow manually) will:
 
 1. Build the Docker image
 2. Push it to **GitHub Container Registry** (`ghcr.io/commjoen/generatedracer`)
@@ -133,10 +154,29 @@ Pushing a tag in the form `v1.2.3` (or triggering the workflow manually) will:
 3. Create a **GitHub Release** with auto-generated release notes
 
 ```bash
-# Tag and push a new release
+# Tag and push a manual release
 git tag v1.0.0
 git push origin v1.0.0
 ```
+
+### PR Preview Containers
+
+Every pull request automatically builds and pushes a preview Docker image:
+
+- **Image tag**: `ghcr.io/commjoen/generatedracer:pr-<PR-number>`
+- A comment is posted (and kept up to date) on the PR with `docker run` instructions
+
+**To run a PR preview locally:**
+
+```bash
+# Authenticate with GitHub Container Registry (one-time setup)
+echo "<YOUR_GITHUB_PAT>" | docker login ghcr.io -u <YOUR_GITHUB_USERNAME> --password-stdin
+
+# Pull and run the preview image (replace 42 with the actual PR number)
+docker run -p 8080:80 ghcr.io/commjoen/generatedracer:pr-42
+```
+
+Then open <http://localhost:8080>.
 
 ---
 
@@ -182,9 +222,11 @@ js/
 Dockerfile          nginx-based container image for local / self-hosted use
 docker-compose.yml  One-command local run
 .github/
-  workflows/deploy.yml    GitHub Pages deployment
-  workflows/release.yml   Automated releases + ghcr.io Docker image push
-  dependabot.yml          Dependency update automation
+  workflows/deploy.yml        GitHub Pages deployment
+  workflows/release.yml       Automated releases + ghcr.io Docker image push (tag-triggered)
+  workflows/auto-release.yml  Auto release on every merge to main (patch version bump)
+  workflows/preview.yml       PR preview containers with usage instructions comment
+  dependabot.yml              Dependency update automation
 renovate.json             Renovate bot configuration
 ```
 

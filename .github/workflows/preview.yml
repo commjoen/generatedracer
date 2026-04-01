@@ -1,0 +1,111 @@
+name: PR Preview Container
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push preview Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.event.pull_request.head.sha }}
+            org.opencontainers.image.title=GenerateRacer PR #${{ github.event.pull_request.number }} Preview
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Post or update PR comment with preview instructions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const repo     = context.repo;
+            const imageTag = `ghcr.io/${{ github.repository }}:pr-${prNumber}`;
+            const sha      = context.payload.pull_request.head.sha.substring(0, 7);
+
+            const body = [
+              `## 🐳 Preview Container for PR #${prNumber}`,
+              ``,
+              `A preview Docker image has been built from commit **${sha}** and pushed to GitHub Container Registry.`,
+              ``,
+              `### Run locally`,
+              ``,
+              `**1. Authenticate with GitHub Container Registry** (one-time setup):`,
+              `\`\`\`bash`,
+              `echo "<YOUR_GITHUB_PAT>" | docker login ghcr.io -u <YOUR_GITHUB_USERNAME> --password-stdin`,
+              `\`\`\``,
+              ``,
+              `> You can create a Personal Access Token at https://github.com/settings/tokens`,
+              `> with the **read:packages** scope.`,
+              ``,
+              `**2. Pull and run the preview image:**`,
+              `\`\`\`bash`,
+              `docker run -p 8080:80 ${imageTag}`,
+              `\`\`\``,
+              ``,
+              `Then open http://localhost:8080 in your browser.`,
+              ``,
+              `**Or pull explicitly first, then run:**`,
+              `\`\`\`bash`,
+              `docker pull ${imageTag}`,
+              `docker run -p 8080:80 ${imageTag}`,
+              `\`\`\``,
+              ``,
+              `---`,
+              `*This comment is automatically updated on each new commit to this PR.*`,
+            ].join('\n');
+
+            // Look for an existing bot comment to update instead of creating a new one
+            const { data: comments } = await github.rest.issues.listComments({
+              ...repo,
+              issue_number: prNumber,
+            });
+
+            const existing = comments.find(
+              c => c.user.type === 'Bot' && c.body.includes('Preview Container for PR')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                ...repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
