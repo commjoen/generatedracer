@@ -393,6 +393,58 @@ textarea::placeholder {
 }
 
 /* ============================================================
+   Main menu – GitHub links & version
+   ============================================================ */
+.menu-links {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.menu-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: #fff;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.menu-link-btn:active { transform: scale(0.96); }
+
+.star-btn {
+  background: rgba(255, 210, 0, 0.18);
+  border: 1px solid rgba(255, 210, 0, 0.45);
+  color: #ffd700;
+}
+
+.star-btn:hover {
+  background: rgba(255, 210, 0, 0.3);
+}
+
+.source-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.source-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.menu-version {
+  margin-top: 10px;
+  font-size: 0.7rem;
+  opacity: 0.3;
+  letter-spacing: 0.4px;
+}
+
+/* ============================================================
    Responsive adjustments
    ============================================================ */
 
