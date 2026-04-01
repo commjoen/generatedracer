@@ -1,5 +1,16 @@
 # 🏎️ GenerateRacer
 
+[![Deploy to GitHub Pages](https://github.com/commjoen/generatedracer/actions/workflows/deploy.yml/badge.svg)](https://github.com/commjoen/generatedracer/actions/workflows/deploy.yml)
+[![Release & Publish Docker Image](https://github.com/commjoen/generatedracer/actions/workflows/release.yml/badge.svg)](https://github.com/commjoen/generatedracer/actions/workflows/release.yml)
+[![GitHub Stars](https://img.shields.io/github/stars/commjoen/generatedracer?style=social)](https://github.com/commjoen/generatedracer/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/commjoen/generatedracer?style=social)](https://github.com/commjoen/generatedracer/network/members)
+[![GitHub Watchers](https://img.shields.io/github/watchers/commjoen/generatedracer?style=social)](https://github.com/commjoen/generatedracer/watchers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/commjoen/generatedracer)](https://github.com/commjoen/generatedracer/commits/main)
+[![GitHub issues](https://img.shields.io/github/issues/commjoen/generatedracer)](https://github.com/commjoen/generatedracer/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/commjoen/generatedracer)](https://github.com/commjoen/generatedracer/pulls)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fcommjoen%2Fgeneratedracer-blue?logo=docker)](https://github.com/commjoen/generatedracer/pkgs/container/generatedracer)
+
 A browser-based kart racing game – think Mario Kart meets Wacky Wheels,
 running entirely in your browser.  No installation, no account, no plugins.
 
@@ -176,6 +187,16 @@ docker-compose.yml  One-command local run
   dependabot.yml          Dependency update automation
 renovate.json             Renovate bot configuration
 ```
+
+---
+
+## 📊 Repository Stats
+
+![GitHub repo size](https://img.shields.io/github/repo-size/commjoen/generatedracer)
+![GitHub code size](https://img.shields.io/github/languages/code-size/commjoen/generatedracer)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/commjoen/generatedracer)
+![GitHub contributors](https://img.shields.io/github/contributors/commjoen/generatedracer)
+![GitHub top language](https://img.shields.io/github/languages/top/commjoen/generatedracer)
 
 ---
 
