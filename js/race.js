@@ -26,6 +26,7 @@ export class RaceManager {
     // Per-car state
     this._state = cars.map(() => ({
       lap:               0,
+      lapCrossings:      0,        // total start/finish crossings (including pre-race); used for ranking
       checkpointsPassed: new Set(),
       prevProgress:      -1,       // track progress in previous frame
       lapStartTime:      null,
@@ -78,19 +79,26 @@ export class RaceManager {
       const allCheckpointsDone = s.checkpointsPassed.size >= NUM_CHECKPOINTS - 1;
       const wrapped = s.prevProgress > 0.85 && prog < 0.15;
 
-      if (wrapped && allCheckpointsDone) {
-        s.lap++;
-        const lapTime = now - s.lapStartTime;
-        if (s.bestLapTime === null || lapTime < s.bestLapTime) {
-          s.bestLapTime = lapTime;
-        }
-        s.lapStartTime      = now;
-        s.checkpointsPassed = new Set();
+      if (wrapped) {
+        // Count every crossing for position-ranking purposes so that a car
+        // which has crossed the start/finish line (even before its first
+        // valid lap is complete) ranks ahead of cars that haven't yet.
+        s.lapCrossings++;
 
-        if (s.lap >= NUM_LAPS) {
-          s.finishTime = now;
-          car.finished = true;
-          if (this.winnerId === null) this.winnerId = i;
+        if (allCheckpointsDone) {
+          s.lap++;
+          const lapTime = now - s.lapStartTime;
+          if (s.bestLapTime === null || lapTime < s.bestLapTime) {
+            s.bestLapTime = lapTime;
+          }
+          s.lapStartTime      = now;
+          s.checkpointsPassed = new Set();
+
+          if (s.lap >= NUM_LAPS) {
+            s.finishTime = now;
+            car.finished = true;
+            if (this.winnerId === null) this.winnerId = i;
+          }
         }
       }
 
@@ -109,7 +117,7 @@ export class RaceManager {
           // Subtracting finishTime/1e9 means an earlier (smaller) finishTime
           // produces a smaller subtraction → larger sortKey → better rank.
           ? NUM_LAPS + 2 - (s.finishTime / 1e9)
-          : (s.lap + prog);
+          : (s.lapCrossings + prog);
         return { i, sortKey };
       })
       .sort((a, b) => b.sortKey - a.sortKey);
