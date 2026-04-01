@@ -9,9 +9,30 @@
  */
 
 import {
-  CHECKPOINT_INDICES, NUM_CHECKPOINTS, SPLINE_POINTS, trackProgress,
+  CHECKPOINT_INDICES, NUM_CHECKPOINTS, SPLINE_DIST, SPLINE_POINTS, TRACK_LENGTH, nearestSplineIdx,
 } from './track.js';
 import { NUM_LAPS, ORDINALS } from './constants.js';
+
+const PROGRESS_SEARCH_WINDOW = 32;
+
+function nearestSplineIdxAround(x, y, centerIdx, windowSize) {
+  const n = SPLINE_POINTS.length;
+  let best = centerIdx;
+  let bestD = Infinity;
+
+  for (let off = -windowSize; off <= windowSize; off++) {
+    const idx = (centerIdx + off + n) % n;
+    const dx = SPLINE_POINTS[idx].x - x;
+    const dy = SPLINE_POINTS[idx].y - y;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      best = idx;
+    }
+  }
+
+  return best;
+}
 
 export class RaceManager {
   /**
@@ -22,15 +43,19 @@ export class RaceManager {
     this.startTime  = null;  // set when race starts
     this.finished   = false;
     this.winnerId   = null;
+    this._finishCounter = 0;
 
     // Per-car state
     this._state = cars.map(() => ({
       lap:               0,
       checkpointsPassed: new Set(),
       prevProgress:      -1,       // track progress in previous frame
+      prevSplineIdx:     -1,
+      progress:          0,
       lapStartTime:      null,
       bestLapTime:       null,
       finishTime:        null,
+      finishSeq:         null,
       ordinal:           '',
     }));
   }
@@ -55,7 +80,11 @@ export class RaceManager {
       const s   = this._state[i];
       if (s.finishTime !== null) continue; // already finished
 
-      const prog = trackProgress(car.x, car.y);
+      if (s.prevSplineIdx < 0) {
+        s.prevSplineIdx = nearestSplineIdx(car.x, car.y);
+      }
+      const splineIdx = nearestSplineIdxAround(car.x, car.y, s.prevSplineIdx, PROGRESS_SEARCH_WINDOW);
+      const prog = SPLINE_DIST[splineIdx] / TRACK_LENGTH;
 
       // -- Checkpoint detection -----------------------------------------------
       for (let k = 0; k < NUM_CHECKPOINTS; k++) {
@@ -74,11 +103,17 @@ export class RaceManager {
       }
 
       // -- Start/finish line (checkpoint 0) / lap completion ------------------
-      // Detect crossing from progress ~1 → ~0 (wrap-around)
+      // Detect crossing from progress ~1 → ~0 (wrap-around).
+      // Also require the car to be physically near the start/finish gate to
+      // avoid false lap counts when nearest-spline indexing jumps.
       const allCheckpointsDone = s.checkpointsPassed.size >= NUM_CHECKPOINTS - 1;
-      const wrapped = s.prevProgress > 0.85 && prog < 0.15;
+      const wrapped = s.prevProgress > 0.9 && prog < 0.1;
+      const startIdx = CHECKPOINT_INDICES[0];
+      const startPt = SPLINE_POINTS[startIdx];
+      const distToStart = Math.hypot(car.x - startPt.x, car.y - startPt.y);
+      const crossedStartGate = distToStart < 130;
 
-      if (wrapped && allCheckpointsDone) {
+      if (wrapped && allCheckpointsDone && crossedStartGate) {
         s.lap++;
         const lapTime = now - s.lapStartTime;
         if (s.bestLapTime === null || lapTime < s.bestLapTime) {
@@ -89,30 +124,32 @@ export class RaceManager {
 
         if (s.lap >= NUM_LAPS) {
           s.finishTime = now;
+          s.finishSeq = ++this._finishCounter;
           car.finished = true;
           if (this.winnerId === null) this.winnerId = i;
         }
       }
 
       s.prevProgress = prog;
+      s.prevSplineIdx = splineIdx;
+      s.progress = prog;
       car.lap        = s.lap;
     }
 
     // -- Position ranking -------------------------------------------------------
     const ranking = this.cars
-      .map((c, i) => {
-        const s    = this._state[i];
-        const prog = trackProgress(c.x, c.y);
-        // sortKey: larger = further along. Finished cars rank above all racing cars.
-        const sortKey = s.finishTime !== null
-          // Finished cars rank above all racing cars (base: NUM_LAPS+2).
-          // Subtracting finishTime/1e9 means an earlier (smaller) finishTime
-          // produces a smaller subtraction → larger sortKey → better rank.
-          ? NUM_LAPS + 2 - (s.finishTime / 1e9)
-          : (s.lap + prog);
-        return { i, sortKey };
-      })
-      .sort((a, b) => b.sortKey - a.sortKey);
+      .map((_c, i) => ({ i, s: this._state[i] }))
+      .sort((a, b) => {
+        const aFinished = a.s.finishSeq !== null;
+        const bFinished = b.s.finishSeq !== null;
+        if (aFinished && bFinished) return a.s.finishSeq - b.s.finishSeq;
+        if (aFinished) return -1;
+        if (bFinished) return 1;
+
+        const aProgress = a.s.lap + a.s.progress;
+        const bProgress = b.s.lap + b.s.progress;
+        return bProgress - aProgress;
+      });
 
     ranking.forEach((r, pos) => {
       this.cars[r.i].position = pos + 1;
