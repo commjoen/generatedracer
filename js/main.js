@@ -18,6 +18,7 @@ import {
   WORLD_W, WORLD_H, NUM_AI, MAX_PLAYERS, CAR_NAMES, ORDINALS,
   CAM_LERP, VIEWPORT_WORLD_W, VIEWPORT_WORLD_H, NUM_LAPS,
   PROJECTILE_COOLDOWN, CAR_LENGTH, PROJECTILE_SPAWN_OFFSET,
+  APP_VERSION, REPO_URL,
 } from './constants.js';
 import { trackProgress } from './track.js';
 
@@ -700,6 +701,32 @@ document.getElementById('btn-join').addEventListener('click', async () => {
 // ---------------------------------------------------------------------------
 showScreen('mainMenu');
 state = STATE.MENU;
+
+// Populate version label
+const versionEl = document.getElementById('menu-version');
+if (versionEl) versionEl.textContent = `v${APP_VERSION}`;
+
+// Fetch and display GitHub star count (best-effort, no error shown to user)
+(async () => {
+  try {
+    const url = new URL(REPO_URL);
+    const repoPath = url.pathname.replace(/^\//, '');
+    if (!repoPath) return;
+    const res = await fetch(`https://api.github.com/repos/${repoPath}`, {
+      headers: { Accept: 'application/vnd.github+json' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const count = data.stargazers_count;
+      const starEl = document.getElementById('star-count');
+      if (starEl && typeof count === 'number') {
+        starEl.textContent = `${count.toLocaleString()} Stars on GitHub`;
+      }
+    }
+  } catch (_) {
+    // Network unavailable or API blocked – silently ignore
+  }
+})();
 
 // Warm up the track renderer (pre-builds spline data structures)
 initRace(NUM_AI);

@@ -17,6 +17,9 @@ running entirely in your browser.  No installation, no account, no plugins.
 | 📱 Touchscreen | On-screen D-pad (mobile & tablet) |
 | 🎮 Gamepad | Web Gamepad API – left stick, triggers, D-pad (covers Tesla MCU steering wheel) |
 | 🏆 Race format | 3 laps, 6 drivers, real-time positions & lap times |
+| 🐳 Docker | Run locally in one command |
+| ⭐ GitHub Stars | Star widget + live star count in the main menu |
+| 🔢 Versioning | `APP_VERSION` constant; version shown in the main menu |
 | 🔒 Security | Dependabot + Renovate for dependency updates; CSP-compatible static deployment |
 
 ---
@@ -77,12 +80,66 @@ Then open <http://localhost:8080>.
 
 ---
 
+## 🐳 Docker
+
+Run the game locally in a single command – no Python or Node.js required:
+
+```bash
+# Pull and run the latest image from GitHub Container Registry
+docker run -p 8080:80 ghcr.io/commjoen/generatedracer:latest
+```
+
+Then open <http://localhost:8080>.
+
+### Build & run locally with Docker Compose
+
+```bash
+git clone https://github.com/commjoen/generatedracer.git
+cd generatedracer
+docker compose up
+```
+
+Then open <http://localhost:8080>.
+
+---
+
 ## Deployment
+
+### GitHub Pages
 
 The repository is configured to **auto-deploy to GitHub Pages** on every push
 to `main` via `.github/workflows/deploy.yml`.
 
 Go to **Settings → Pages → Source → GitHub Actions** to enable it.
+
+### Releases & Container Registry
+
+Pushing a tag in the form `v1.2.3` (or triggering the workflow manually) will:
+
+1. Build the Docker image
+2. Push it to **GitHub Container Registry** (`ghcr.io/commjoen/generatedracer`)
+   with tags `latest`, `1`, `1.2`, and `1.2.3`
+3. Create a **GitHub Release** with auto-generated release notes
+
+```bash
+# Tag and push a new release
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+---
+
+## Versioning
+
+The current version is declared in `js/constants.js`:
+
+```js
+export const APP_VERSION = '1.0.0';
+export const REPO_URL    = 'https://github.com/commjoen/generatedracer';
+```
+
+The version is displayed in the bottom of the main menu and in every
+Docker image tag.  Bump `APP_VERSION` before tagging a new release.
 
 ---
 
@@ -102,7 +159,7 @@ Go to **Settings → Pages → Source → GitHub Actions** to enable it.
 index.html          Main page, canvas, menus, touch controls
 game.css            Responsive styles (mobile, tablet, Tesla, desktop)
 js/
-  constants.js      Tunable game constants
+  constants.js      Tunable game constants (incl. APP_VERSION, REPO_URL)
   track.js          Catmull-Rom spline track, rendering, collision
   car.js            Car class – arcade physics, drawing
   ai.js             AI controller – waypoint following + rubber-banding
@@ -111,10 +168,13 @@ js/
   hud.js            HUD DOM updates
   network.js        WebRTC peer-to-peer multiplayer
   main.js           Game loop, state machine, wiring
+Dockerfile          nginx-based container image for local / self-hosted use
+docker-compose.yml  One-command local run
 .github/
-  workflows/deploy.yml   GitHub Pages deployment
-  dependabot.yml         Dependency update automation
-renovate.json            Renovate bot configuration
+  workflows/deploy.yml    GitHub Pages deployment
+  workflows/release.yml   Automated releases + ghcr.io Docker image push
+  dependabot.yml          Dependency update automation
+renovate.json             Renovate bot configuration
 ```
 
 ---

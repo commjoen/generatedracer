@@ -1,5 +1,8 @@
 // Game constants
 
+export const APP_VERSION = '1.0.0';
+export const REPO_URL    = 'https://github.com/commjoen/generatedracer';
+
 export const WORLD_W = 3000;
 export const WORLD_H = 2000;
 
