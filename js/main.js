@@ -123,6 +123,14 @@ input.bindTouchButtons(
   document.getElementById('btn-gas'),
   document.getElementById('btn-brake'),
 );
+input.bindActionButtons(
+  document.getElementById('hud-turbo'),
+  document.getElementById('hud-shoot'),
+);
+inputP2.bindActionButtons(
+  document.getElementById('hud2-turbo'),
+  document.getElementById('hud2-shoot'),
+);
 
 // ---------------------------------------------------------------------------
 // UI helpers
