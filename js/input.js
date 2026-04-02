@@ -26,7 +26,7 @@ export class InputHandler {
     this.shoot = false;
 
     // Touch state (set from DOM event listeners in main.js via touchButtons map)
-    this.touch = { left: false, right: false, gas: false, brake: false };
+    this.touch = { left: false, right: false, gas: false, brake: false, turbo: false, shoot: false };
 
     // Gamepad state (polled each frame via update())
     this._gamepadIndex = null;
@@ -140,6 +140,23 @@ export class InputHandler {
     bind(brakeEl, 'brake');
   }
 
+  /** Bind the turbo and shoot HUD action buttons. */
+  bindActionButtons(turboEl, shootEl) {
+    const bind = (el, key) => {
+      const startFn = (e) => { e.preventDefault(); this.touch[key] = true;  };
+      const endFn   = (e) => { e.preventDefault(); this.touch[key] = false; };
+      el.addEventListener('touchstart', startFn, { passive: false });
+      el.addEventListener('touchend',   endFn,   { passive: false });
+      el.addEventListener('touchcancel',endFn,   { passive: false });
+      // Mouse fallback (for desktop testing)
+      el.addEventListener('mousedown', startFn);
+      el.addEventListener('mouseup',   endFn);
+      el.addEventListener('mouseleave',endFn);
+    };
+    bind(turboEl, 'turbo');
+    bind(shootEl, 'shoot');
+  }
+
   /**
    * Compose final input values for the car:
    *   steer: -1 (left) … +1 (right)
@@ -167,8 +184,8 @@ export class InputHandler {
       steer,
       gas:   gas   ? 1 : 0,
       brake: brake ? 1 : 0,
-      turbo: this.turbo,
-      shoot: this.shoot,
+      turbo: this.turbo || this.touch.turbo,
+      shoot: this.shoot || this.touch.shoot,
     };
   }
 }
