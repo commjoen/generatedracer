@@ -1,0 +1,139 @@
+name: Auto Release on Merge to Main
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  auto-release:
+    # Skip if this push was itself a version-bump commit to prevent infinite loops
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version to')"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Use a PAT or the default token; fetch full history to allow tagging
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Read current version from constants.js
+        id: current
+        run: |
+          version=$(grep "APP_VERSION" js/constants.js | sed "s/.*APP_VERSION = '\(.*\)'.*/\1/")
+          if [[ -z "${version}" ]]; then
+            echo "::error::Could not extract APP_VERSION from js/constants.js"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Current version: ${version}"
+
+      - name: Compute next patch version
+        id: next
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ steps.current.outputs.version }}"
+          next_patch=$((patch + 1))
+          next_version="${major}.${minor}.${next_patch}"
+          echo "version=${next_version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${next_version}" >> "$GITHUB_OUTPUT"
+          echo "Next version: ${next_version}"
+
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.next.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update APP_VERSION in constants.js
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          sed -i "s/export const APP_VERSION = '.*';/export const APP_VERSION = '${{ steps.next.outputs.version }}';/" js/constants.js
+          echo "Updated APP_VERSION to ${{ steps.next.outputs.version }}"
+
+      - name: Commit and tag version bump
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add js/constants.js
+          git commit -m "chore: bump version to ${{ steps.next.outputs.version }}"
+          git tag "${{ steps.next.outputs.tag }}"
+          git push origin main --follow-tags
+
+      - name: Log in to GitHub Container Registry
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        if: steps.tag_check.outputs.exists == 'false'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.next.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.next.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ steps.next.outputs.tag }}
+            type=raw,value=latest
+
+      - name: Set up Docker Buildx
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create GitHub Release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.next.outputs.tag }}
+          name: GenerateRacer ${{ steps.next.outputs.tag }}
+          generate_release_notes: true
+          body: |
+            ## 🏎️ GenerateRacer ${{ steps.next.outputs.tag }}
+
+            ### 🐳 Docker
+
+            Run the game locally with Docker:
+
+            ```bash
+            docker run -p 8080:80 ghcr.io/${{ github.repository }}:${{ steps.next.outputs.version }}
+            ```
+
+            Then open http://localhost:8080
+
+            Or with Docker Compose (clone the repo first):
+
+            ```bash
+            docker compose up
+            ```
+
+            ### 🎮 Play Online
+
+            [Play now on GitHub Pages](https://commjoen.github.io/generatedracer/)
