@@ -156,8 +156,8 @@ export class RaceManager {
       this._state[r.i].ordinal = ORDINALS[pos] ?? `${pos + 1}th`;
     });
 
-    // Race is done when all cars finished or enough time has passed
-    if (this.cars.every((c, i) => this._state[i].finishTime !== null)) {
+    // Race is done when the winner (first car to finish) completes their final lap
+    if (this.winnerId !== null) {
       this.finished = true;
     }
   }
